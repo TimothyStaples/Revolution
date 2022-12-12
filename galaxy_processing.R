@@ -40,9 +40,7 @@ setwd("/Users/uqtstapl/Dropbox/Tim/data/RGalaxy")
 sapply(paste0("./functions/", list.files("./functions")), source)
 
 #accessAPI for R scripts 
-gitToken = c("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",
-             "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",
-             "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")
+gitToken = c("SET THESE UP IN GITHUB")
               
 # FIND GITHUB R SCRIPTS ####
 #         Identify repositories with the "R" language flag ####
