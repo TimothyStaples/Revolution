@@ -20,8 +20,7 @@ package.loader(c("parallel", "vegan", "mgcv", "lme4", "shape"))
 
 # DATA PREP ####
 
-funTableSub <- read.csv(unz("./outputs/commonFunctionLong.csv.zip",
-                            "commonFunctionLong.csv"))
+funTableSub <- read.csv("./outputs/commonFunctionLong.csv")
 
 funTableSub$functionCat <- "other"
 funTableSub$functionCat[funTableSub$basePacks] = "base"

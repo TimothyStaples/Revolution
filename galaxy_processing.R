@@ -3,32 +3,8 @@ gc()
 
 library(parallel)
 library(tm)
-library(vegan)
 library(gh)
 library(rvest)
-
-library(ecodist)
-library(dbscan)
-library(meanShiftR)
-
-library(mgcv)
-library(lme4)
-library(gamm4)
-library(MuMIn)
-library(usdm)
-library(performance)
-library(glmmTMB)
-library(boot)
-
-library(brms)
-library(loo)
-
-library(igraph)
-library(qgraph)
-
-library(vioplot)
-library(shape)
-library(viridisLite)
 
 # ISSUES ####
 
@@ -36,11 +12,11 @@ library(viridisLite)
 
 # SET DETAILS ####
 
-setwd("/Users/uqtstapl/Dropbox/Tim/data/RGalaxy")
+setwd("PATH TO THIS FILE")
 sapply(paste0("./functions/", list.files("./functions")), source)
 
 #accessAPI for R scripts 
-gitToken = c("SET THESE UP IN GITHUB")
+gitToken = c("ADD GIT TOKEN HERE")
               
 # FIND GITHUB R SCRIPTS ####
 #         Identify repositories with the "R" language flag ####
@@ -48,11 +24,11 @@ gitToken = c("SET THESE UP IN GITHUB")
 # get R-based URLs with "R" language flag
 # how to get around the 1000 max limit, we need to redo searches for particular periods of time
 # let's try each day (from 1st Jan 2010 to 31st Dec 2020)
-lapply(1:1000, function(dayN){
+lapply(1:10, function(dayN){
   
   print(dayN)
-  start <- as.Date("2020-11-30") + dayN-1
-  end <- as.Date("2020-11-30") + dayN
+  start <- as.Date("2010-01-1") + dayN-1
+  end <- as.Date("2010-01-1") + dayN
   
   if(start >= as.Date("2022-01-1")){
     return(NULL)
@@ -69,8 +45,8 @@ lapply(1:1000, function(dayN){
   
   # if there's no entries for a day, return nothing and wait for a spell to
   # avoid hitting the 30 requests a minute limit
-  if(pageN <= 2){Sys.sleep(3)}
   if(pageN == 0){return(NULL)}
+  if(pageN <= 2){Sys.sleep(3)}
   if(pageN > 10){paste0("WARNING...MORE THAN 10 PAGES")}
 
   RURLs <- lapply(1:ifelse(pageN > 10, 10, pageN), function(n){
@@ -131,7 +107,6 @@ RURLSstore <- RURLS
   
   # remove repos that have been done
   doneFiles <- c(list.files("./gitURLs"),
-                 list.files("./gitURLs1"),
                  list.files("./gitGone"))
   
   # we made an error with swapping the "-" for "_" in saving some files)
@@ -170,7 +145,7 @@ RURLSstore <- RURLS
     tempToken <- gitToken[tokenN]
     
     sapply(1:nrow(RURLsub), function(n){
-      
+      print(n)
       temp <- unlist(RURLsub[n,])
       
       if(paste0(temp[2], "-", temp[3], ".csv") %in% doneFiles){
@@ -178,7 +153,7 @@ RURLSstore <- RURLS
       }
       
       # check to see if we have this already (in the case that this apply fails at any point)
-      tempFileString <- paste0("./gitURLs1/", temp[2], "-", temp[3], ".csv")
+      tempFileString <- paste0("./gitURLs/", temp[2], "-", temp[3], ".csv")
       
       # get repo content tree
       repoURL <- paste0("GET /repos/", temp[2],"/", temp[3], "/git/trees/master?recursive=1")
@@ -214,6 +189,7 @@ RURLSstore <- RURLS
   })
   stopCluster(cl=cl)
   
+
 # PROCESS FUNCTION DATA ####  
 #             Download .R files ####
 
@@ -322,13 +298,17 @@ fileComb <- rbind(fileComplete,
 fileComb <- fileComb[order(as.numeric(rownames(fileComb))),]
 
 # Download and write scripts as raw text files (subset the script-id off)
-doneScripts <- c(list.files("./gitScripts"),
-                 list.files("./gitScripts1"))
+doneScripts <- list.files("./gitScripts")
 
 # convert IDs of doneScripts into repoIds that align with all repos to be done
 doneCut <- gregexpr("-", doneScripts)
 doneCut <- sapply(doneCut, function(x){x[2]})
+
+if(length(doneScripts) > 0 ){
 doneRepo <- unique(substr(doneScripts, 1, doneCut-1))
+} else {
+  doneRepo <- NULL
+}
 
 # add in repositories that don't have any R files despite the R flag
 blankRepo <- list.files("./gitBlanks")
@@ -338,7 +318,6 @@ cutRepo <- unique(c(doneRepo, blankRepo))
 
 # remaining files are those with user and repo ids NOT in cutRepo
 fullId <- paste0(fileComb$userID,"-",fileComb$repoID)
-head(fullId)
 
 fileToDo <- fileDf[!fullId %in% cutRepo]
 
@@ -394,7 +373,7 @@ if(paste0(userID, "-", repoId, "-1.txt") %in% doneScripts){return(NULL)}
   
   scUTF <- enc2utf8(sc)
   
-  try(writeChar(scUTF, paste0("./gitScripts1/",userID,"-",repoId,"-",n1, ".txt")))
+  try(writeChar(scUTF, paste0("./gitScripts/",userID,"-",repoId,"-",n1, ".txt")))
   
   })
   
@@ -403,7 +382,7 @@ stopCluster(cl=cl)
 
 #             Process scripts to extract function calls ####
 
-doneFuns <- c(list.files("./gitFuns"), list.files("./gitFuns1"))
+doneFuns <- list.files("./gitFuns")
 doneFuns <- substr(doneFuns, 1, nchar(doneFuns)-4)
 
 allScripts <- list.files("./gitScripts")
@@ -540,8 +519,9 @@ cl <- makeCluster(4)
 setDefaultCluster(cl)
 options(na.action = "na.fail")
 funlist <-  parLapply(cl, list.files("./gitFuns"), function(path){
-  x <- as.vector(read.csv(paste0("./gitFuns/",path)))
-  if(nrow(x)==0){return(NA)} else {return(x)}
+  print(path)
+  x <- unlist(read.csv(paste0("./gitFuns/",path)))
+  if(length(x)==0){return(NA)} else {return(x)}
 })
 stopCluster(cl=cl)
 names(funlist) = list.files("./gitFuns")
@@ -550,8 +530,8 @@ names(funlist) = list.files("./gitFuns")
 
 # how many scripts have no functions
 funLengths <- sapply(funlist, function(x){
-  if(is.na(x)){return(0)}
-  nrow(x)
+  if(is.na(x[1])){return(0)}
+  length(x)
   })
 summary(funLengths==0)
 
@@ -579,7 +559,10 @@ saveRDS(funTableList, "./outputs/funTableList.rds")
 # run through and process files in groups of 1000, binding together each little
 # script data-frame. We have to do this in bunches because rbind freaks out if
 # we give it too many to do at one time.
-funCount <- c(seq(1000, length(funTableList), 1000), nrow(funTableList))
+if(length(funTableList) <- 1000){
+funCount <- length(funTableList)
+} else {c(seq(1000, length(funTableList), 1000), nrow(funTableList))}
+
 lapply(funCount, function(n){
 
   temp <- do.call("rbind", funTableList[(n-(funCount[1]-1)):n])
