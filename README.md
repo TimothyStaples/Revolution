@@ -1,6 +1,17 @@
-Code used to generate results, figures and tables for pre-print [Expansion and evolution of the R programming language](https://arxiv.org/abs/2208.12382).
+Code used to generate results, figures and tables for:
 
-The data used to generate this publication were obtained using the GitHub API. galaxy\_processing.R uses the API to access and process publically accessible data. The galaxy\_analysis.R imports the cleaned data and runs all analyses and produces all figures. Both scripts makes extensive use of the code folding functionality in RStudio. Alt + O is the default shortcut on Windows and Linux versions of RStudio to collapse all folds.
+Published article: Diversification and change in the R programming language, Royal Society Open Science (URL pending)
+Pre-print [Expansion and evolution of the R programming language](https://arxiv.org/abs/2208.12382).
+
+The published version is revised and best version to refer to. The latest update to this code is for this version.
+
+The data used to generate this publication were obtained using the GitHub API.
+
+galaxy\_processing.R uses the API to access and process publically accessible data. 
+
+galaxy\_analysis.R imports the cleaned data and runs all analyses and produces all figures. 
+
+Both scripts makes extensive use of the code folding functionality in RStudio. Alt + O is the default shortcut on Windows and Linux versions of RStudio to collapse all folds.
 
 **galaxy\_processing.R**
 
@@ -30,13 +41,13 @@ This script has several requirements in order to run correctly.
 
 **galaxy\_analysis.R**
 
-This script imports the processed data. This file is currently available at Dropbox, but I will sort out a more permanent location.
-https://www.dropbox.com/s/drq8zl9d2tdegm5/commonFunctionLong.csv.zip?dl=0
-This file must be downloaded, unzipped and placed into the *outputs* subfolder.
+This script imports the processed data from galaxy\_processing.R and conducts all statistical analyses in the main text and supplementary material. 
 
-This script also relies on a number of functions in the *functions* subfolder, so please make sure these are included.
+Given the time investment to recreate this file, I have housed a full version (including metadata) for download as a [Dryad dataset](https://doi.org/10.5061/dryad.h18931zrg). It is housed outside of the repository due to size (c. 7GB). To run galaxy\_analysis.R, this file must be downloaded and placed into the *outputs* subfolder of this repository.
 
-Some of the analysis steps take a long time to run, as this is a very large dataset. If you are interested in quickly reproducing intermediate steps, I suggest subsetting *funTableSub* when it is created on line 23. 100,000 rows is sufficient to capture enough data to run analyses.
+galaxy\_analysis.R also relies on a number of functions in the *functions* subfolder, so please make sure these are included.
+
+Some of the analysis steps take a long time to run, as this is a very large dataset. If you are interested in quickly reproducing intermediate steps, I suggest subsetting *funTableSub* when it is created on line 23. 100,000 rows should be sufficient to capture enough data to run analyses.
 
 All plots are generated within the R script, with only labels being altered in post-R software. These are saved in the *plots* sub-folder.
 
