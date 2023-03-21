@@ -6,17 +6,21 @@ library(tm)
 library(gh)
 library(rvest)
 
+library(dbscan)
+
 # ISSUES ####
 
 # 1.  A small handful of days had > 1000 repos created that day, so we missed those
 
 # SET DETAILS ####
 
-setwd("PATH TO THIS FILE")
+setwd("/Users/uqtstapl/Dropbox/Tim/data/RGalaxy")
 sapply(paste0("./functions/", list.files("./functions")), source)
 
 #accessAPI for R scripts 
-gitToken = c("ADD GIT TOKEN HERE")
+gitToken = c("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",
+             "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",
+             "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")
               
 # FIND GITHUB R SCRIPTS ####
 #         Identify repositories with the "R" language flag ####
@@ -24,11 +28,11 @@ gitToken = c("ADD GIT TOKEN HERE")
 # get R-based URLs with "R" language flag
 # how to get around the 1000 max limit, we need to redo searches for particular periods of time
 # let's try each day (from 1st Jan 2010 to 31st Dec 2020)
-lapply(1:10, function(dayN){
+lapply(1:1000, function(dayN){
   
   print(dayN)
-  start <- as.Date("2010-01-1") + dayN-1
-  end <- as.Date("2010-01-1") + dayN
+  start <- as.Date("2020-11-30") + dayN-1
+  end <- as.Date("2020-11-30") + dayN
   
   if(start >= as.Date("2022-01-1")){
     return(NULL)
@@ -45,8 +49,8 @@ lapply(1:10, function(dayN){
   
   # if there's no entries for a day, return nothing and wait for a spell to
   # avoid hitting the 30 requests a minute limit
-  if(pageN == 0){return(NULL)}
   if(pageN <= 2){Sys.sleep(3)}
+  if(pageN == 0){return(NULL)}
   if(pageN > 10){paste0("WARNING...MORE THAN 10 PAGES")}
 
   RURLs <- lapply(1:ifelse(pageN > 10, 10, pageN), function(n){
@@ -107,6 +111,7 @@ RURLSstore <- RURLS
   
   # remove repos that have been done
   doneFiles <- c(list.files("./gitURLs"),
+                 list.files("./gitURLs1"),
                  list.files("./gitGone"))
   
   # we made an error with swapping the "-" for "_" in saving some files)
@@ -145,7 +150,7 @@ RURLSstore <- RURLS
     tempToken <- gitToken[tokenN]
     
     sapply(1:nrow(RURLsub), function(n){
-      print(n)
+      
       temp <- unlist(RURLsub[n,])
       
       if(paste0(temp[2], "-", temp[3], ".csv") %in% doneFiles){
@@ -153,7 +158,7 @@ RURLSstore <- RURLS
       }
       
       # check to see if we have this already (in the case that this apply fails at any point)
-      tempFileString <- paste0("./gitURLs/", temp[2], "-", temp[3], ".csv")
+      tempFileString <- paste0("./gitURLs1/", temp[2], "-", temp[3], ".csv")
       
       # get repo content tree
       repoURL <- paste0("GET /repos/", temp[2],"/", temp[3], "/git/trees/master?recursive=1")
@@ -189,7 +194,6 @@ RURLSstore <- RURLS
   })
   stopCluster(cl=cl)
   
-
 # PROCESS FUNCTION DATA ####  
 #             Download .R files ####
 
@@ -298,17 +302,13 @@ fileComb <- rbind(fileComplete,
 fileComb <- fileComb[order(as.numeric(rownames(fileComb))),]
 
 # Download and write scripts as raw text files (subset the script-id off)
-doneScripts <- list.files("./gitScripts")
+doneScripts <- c(list.files("./gitScripts"),
+                 list.files("./gitScripts1"))
 
 # convert IDs of doneScripts into repoIds that align with all repos to be done
 doneCut <- gregexpr("-", doneScripts)
 doneCut <- sapply(doneCut, function(x){x[2]})
-
-if(length(doneScripts) > 0 ){
 doneRepo <- unique(substr(doneScripts, 1, doneCut-1))
-} else {
-  doneRepo <- NULL
-}
 
 # add in repositories that don't have any R files despite the R flag
 blankRepo <- list.files("./gitBlanks")
@@ -318,6 +318,7 @@ cutRepo <- unique(c(doneRepo, blankRepo))
 
 # remaining files are those with user and repo ids NOT in cutRepo
 fullId <- paste0(fileComb$userID,"-",fileComb$repoID)
+head(fullId)
 
 fileToDo <- fileDf[!fullId %in% cutRepo]
 
@@ -373,7 +374,7 @@ if(paste0(userID, "-", repoId, "-1.txt") %in% doneScripts){return(NULL)}
   
   scUTF <- enc2utf8(sc)
   
-  try(writeChar(scUTF, paste0("./gitScripts/",userID,"-",repoId,"-",n1, ".txt")))
+  try(writeChar(scUTF, paste0("./gitScripts1/",userID,"-",repoId,"-",n1, ".txt")))
   
   })
   
@@ -382,7 +383,7 @@ stopCluster(cl=cl)
 
 #             Process scripts to extract function calls ####
 
-doneFuns <- list.files("./gitFuns")
+doneFuns <- c(list.files("./gitFuns"), list.files("./gitFuns1"))
 doneFuns <- substr(doneFuns, 1, nchar(doneFuns)-4)
 
 allScripts <- list.files("./gitScripts")
@@ -519,9 +520,8 @@ cl <- makeCluster(4)
 setDefaultCluster(cl)
 options(na.action = "na.fail")
 funlist <-  parLapply(cl, list.files("./gitFuns"), function(path){
-  print(path)
-  x <- unlist(read.csv(paste0("./gitFuns/",path)))
-  if(length(x)==0){return(NA)} else {return(x)}
+  x <- as.vector(read.csv(paste0("./gitFuns/",path)))
+  if(nrow(x)==0){return(NA)} else {return(x)}
 })
 stopCluster(cl=cl)
 names(funlist) = list.files("./gitFuns")
@@ -530,8 +530,8 @@ names(funlist) = list.files("./gitFuns")
 
 # how many scripts have no functions
 funLengths <- sapply(funlist, function(x){
-  if(is.na(x[1])){return(0)}
-  length(x)
+  if(is.na(x)){return(0)}
+  nrow(x)
   })
 summary(funLengths==0)
 
@@ -559,10 +559,7 @@ saveRDS(funTableList, "./outputs/funTableList.rds")
 # run through and process files in groups of 1000, binding together each little
 # script data-frame. We have to do this in bunches because rbind freaks out if
 # we give it too many to do at one time.
-if(length(funTableList) <- 1000){
-funCount <- length(funTableList)
-} else {c(seq(1000, length(funTableList), 1000), nrow(funTableList))}
-
+funCount <- c(seq(1000, length(funTableList), 1000), nrow(funTableList))
 lapply(funCount, function(n){
 
   temp <- do.call("rbind", funTableList[(n-(funCount[1]-1)):n])
@@ -717,8 +714,15 @@ functionTablePack$ursID <- paste0(functionTablePack$id, ".", functionTablePack$r
 functionTablePack$urID <- paste0(functionTablePack$id, ".", functionTablePack$repoId)
 
 functionTablePack$package[functionTablePack$function.=="filter"] = "dplyr"
+functionTablePack$package[functionTablePack$function.=="gather"] = "tidyr"
 functionTablePack$package[functionTablePack$function.=="select"] = "dplyr"
 functionTablePack$package[functionTablePack$function.=="."] = "plyr"
+functionTablePack$package[functionTablePack$function.==".Call"] = "base"
+functionTablePack$package[functionTablePack$function.==".libPaths"] = "base"
+functionTablePack$package[functionTablePack$function.==".Internal"] = "base"
+functionTablePack$package[functionTablePack$function.==".C"] = "base"
+functionTablePack$package[functionTablePack$function.=="Pr"] = "posterior"
+functionTablePack$package[functionTablePack$function.=="rmvnorm"] = "mvtnorm"
 
 # capture tidyverse packages
 functionTablePack$tidyverse <- functionTablePack$package %in% c("ggplot2", "dplyr", "tidyr",
@@ -743,7 +747,7 @@ functionTablePack$tidyExtend <- functionTablePack$package %in% c("autoplotly", "
                                                "rvest", "xml2", "modelr", "broom",
                                                
                                                "rsample", "recipes", "tune", "parsnip", "yardstick", "patchwork",
-                                               "tidygraph")
+                                               "tidygraph", "rstatix")
 
 # capture other internal core base packages
 basePacks <- as.data.frame(installed.packages())
@@ -794,8 +798,94 @@ sum(noPack) / nrow(functionTablePack)
 noPackTable <- table(functionTablePack$function.[noPack])
 sum(table(noPackTable)[1:5]) / sum(noPackFun)
 
-
 functionTablePack <- droplevels(functionTablePack[!noPack,])
+
+head(functionTablePack)
+
+# function frequency distributions (Fig S3) ####
+
+funPropTable <- tapply(functionTablePack$count, 
+                       list(functionTablePack$monthsSinceJan10Created,
+                            functionTablePack$function.), sum, na.rm=TRUE)
+funPropTable[is.na(funPropTable)] = 0
+funPropTable <- prop.table(funPropTable)
+
+
+pdf("./plots/wordFreqDist.pdf", height=3.5, width=7)
+
+split.screen(rbind(c(0.1,0.65,0.15,0.98),
+                   c(0.75,0.99,0.15,0.98)))
+
+screen(1)
+par(mar=c(0,0,0,0), ps=10, tcl=-0.25, las=1, mgp=c(3,0.5,0))
+
+plot(x=NULL, y=NULL, xlim=c(-20,-2), ylim=c(-0.02,0.15), yaxs="i", xaxt="n",
+     xlab="", ylab="")
+mtext(side=2, line=2, text="Density", las=0)
+
+xTicks <- sapply(as.numeric(paste0("1e", (-10:-1))),
+                 function(n){seq(n, n*10, n)})
+axis(side=1, at=log(as.vector(xTicks)), tcl=-0.125, labels=NA)
+axis(side=1, at=log(as.numeric(paste0("1e", (-10:-1)))), 
+     labels=as.numeric(paste0("1e", (-10:-1))),
+     mgp=c(3,0.2,0))
+mtext(side=1, line=1.5, text="Function relative abundance")
+
+sapply(1:nrow(funPropTable), function(n){
+  
+  print(n)
+  lX <- log(funPropTable[n,])
+  dlX <- density(lX)#, from=min(lX), to=max(lX))
+  lines(x=dlX$x, y=dlX$y, col=yearCol[n], lwd=0.25)
+
+})
+
+lX <- log(colSums(funPropTable) / sum(funPropTable))
+dlX <- density(lX)
+lines(x=dlX$x, y=dlX$y, col="black", lwd=2)
+
+# find normal distribution that best describes data
+funPropVect <- as.vector(funPropTable)
+funPropVect <- funPropVect[funPropVect > 0]
+
+funlm <- lm(lX ~ 1)
+summary(funlm)
+funPred <- predict(funlm, interval="prediction", level=0.67)[1,]
+funSeq <- seq(-40,20,len=200)
+
+funQuan <- dnorm(x=funSeq, mean=funPred[1], sd= funPred[3] - funPred[1])
+
+lines(funQuan ~ funSeq, lwd=2, lty="31", col="red")
+
+lines(funQuan[funQuan > 1e-5] ~ funSeq[funQuan > 1e-5], lwd=2, lty="323", col="red")
+
+text(x=relative.axis.point(0.02, "x"),
+     y=relative.axis.point(0.965, "y"),
+     labels="(A)", font=2, adj=0)
+
+close.screen(1)
+
+screen(2)
+par(mar=c(0,0,0,0), ps=10, tcl=-0.25, las=1, mgp=c(3,0.5,0))
+
+a <- qqnorm(residuals(funlm), plot.it=FALSE)
+
+plot(a, pch=16, cex=0.5, xlab="", ylab="", xaxt="n", col="grey65")
+
+axis(side=1, mgp=c(3,0.2,0))
+mtext(side=1, line=1.5, text="Theoretical quantiles")
+mtext(side=2, line=2, text="Observed data quantiles", las=0)
+
+b <- qqline(residuals(funlm), col="red", lwd=2, lty="32")
+
+text(x=relative.axis.point(0.02, "x"),
+     y=relative.axis.point(0.965, "y"),
+     labels="(B)", font=2, adj=0)
+close.screen(2)
+
+
+dev.off()
+
 
 #                   rare functions ####
  
@@ -844,6 +934,13 @@ funTableSub <- droplevels(funTableSub[!funTableSub$ursID %in% names(soloFuns),])
 
 write.csv(funTableSub, "./outputs/commonFunctionLong.csv")
 
+# check the most common functions
+funTable <- as.data.frame(table(funTableSub$function.))
+funTable <- merge(funTable, funTableSub[!duplicated(funTableSub$function.), c("function.", "package", "basePacks", "tidyverse", "tidyExtend", "other")],
+                  by.x="Var1", by.y="function.", all.x=TRUE, all.y=FALSE, sort=FALSE)
+funTable <- funTable[order(funTable$Freq, decreasing=TRUE),]
+write.csv(funTable, "./outputs/functionFreq.csv")
+
 # FINAL SUMMARY STATISTICS ####
 
 summaryDf <- rbind(summaryDf,
@@ -861,12 +958,11 @@ sum(funTableSub$tidyverse[!duplicated(funTableSub$function.)])
 sum(funTableSub$tidyExtend[!duplicated(funTableSub$function.)])
 
 
-
 summaryDf[3,] <- summaryDf[2,] / summaryDf[1,]
 
 write.csv(summaryDf, "./outputs/summaryStats.csv")
 
-# test sampling filters ####
+# test sampling filters (Fig S1) ####
 
 testThresholds <- c(seq(0.0001, 0.001, 0.0001),
                     seq(0.001, 0.01, 0.001),
